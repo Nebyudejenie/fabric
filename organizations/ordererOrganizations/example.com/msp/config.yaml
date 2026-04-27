@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+######################################################################
+# MSP Configuration for Orderer Organization
+# This file defines the organizational structure and trust anchors
+######################################################################
+
+NodeOUs:
+  Enable: true
+  ClientOUIdentifier:
+    Certificate: cacerts/ca.example.com-cert.pem
+    OrganizationalUnitIdentifier: client
+  PeerOUIdentifier:
+    Certificate: cacerts/ca.example.com-cert.pem
+    OrganizationalUnitIdentifier: peer
+  AdminOUIdentifier:
+    Certificate: cacerts/ca.example.com-cert.pem
+    OrganizationalUnitIdentifier: admin
+  OrdererOUIdentifier:
+    Certificate: cacerts/ca.example.com-cert.pem
+    OrganizationalUnitIdentifier: orderer
+
+# Organizational Unit Identifiers (optional)
+OrganizationalUnitIdentifiers:
+  - Certificate: cacerts/ca.example.com-cert.pem
+    OrganizationalUnitIdentifier: commercial
+  - Certificate: cacerts/ca.example.com-cert.pem
+    OrganizationalUnitIdentifier: administrators

@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: Apache-2.0
+######################################################################
+# crypto-config.yaml - Cryptogen Configuration
+# Defines the organization structure for certificate generation
+######################################################################
+
+# Peer Organizations
+PeerOrgs:
+  # Org1 Configuration
+  - Domain: org1.example.com
+    EnableNodeOUs: true
+    CA:
+      CommonName: ca.org1.example.com
+      Country: US
+      Province: California
+      Locality: San Francisco
+      OrganizationalUnit: Hyperledger
+      StreetAddress: 123 Blockchain Ave
+      PostalCode: 94105
+      PublicKeyAlgorithm: ECDSA
+      Host: 0.0.0.0
+      Port: 7054
+    # Users for Org1
+    Users:
+      Count: 1
+    # Peers for Org1
+    Peers:
+      - Host: peer0.org1.example.com
+        Port: 7051
+        GANGLIA_PORT: 8001
+
+  # Org2 Configuration
+  - Domain: org2.example.com
+    EnableNodeOUs: true
+    CA:
+      CommonName: ca.org2.example.com
+      Country: US
+      Province: New York
+      Locality: New York City
+      OrganizationalUnit: Hyperledger
+      StreetAddress: 456 Ledger St
+      PostalCode: 10001
+      PublicKeyAlgorithm: ECDSA
+      Host: 0.0.0.0
+      Port: 7054
+    # Users for Org2
+    Users:
+      Count: 1
+    # Peers for Org2
+    Peers:
+      - Host: peer0.org2.example.com
+        Port: 7051
+        GANGLIA_PORT: 8001
+
+# Orderer Organizations
+OrdererOrgs:
+  # Orderer Organization Configuration
+  - Domain: example.com
+    EnableNodeOUs: true
+    CA:
+      CommonName: ca.example.com
+      Country: US
+      Province: California
+      Locality: San Francisco
+      OrganizationalUnit: Hyperledger
+      StreetAddress: 789 Consensus Blvd
+      PostalCode: 94105
+      PublicKeyAlgorithm: ECDSA
+      Host: 0.0.0.0
+      Port: 7053
+    # Users for Orderer Org
+    Users:
+      Count: 1
+    # Orderers for Orderer Org
+    Orderers:
+      - Host: orderer0.example.com
+        Port: 7050
+        GANGLIA_PORT: 8001
+      - Host: orderer1.example.com
+        Port: 7050
+        GANGLIA_PORT: 8001
+      - Host: orderer2.example.com
+        Port: 7050
+        GANGLIA_PORT: 8001

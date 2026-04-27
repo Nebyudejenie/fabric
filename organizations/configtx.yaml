@@ -1,0 +1,229 @@
+# SPDX-License-Identifier: Apache-2.0
+######################################################################
+# ConfigTx.yaml - Channel Transaction Configuration
+# Defines organizations, channels, and consensus
+######################################################################
+
+---
+######################################################################
+# Section 1: Organizations
+######################################################################
+
+# Org1 - Peer Organization
+- &Org1
+    # Organization ID (MSP ID)
+    Name: Org1MSP
+
+    # ID to load the MSP definition as
+    ID: Org1MSP
+
+    # MSP Directory path (relative to configtx.yaml)
+    MSPDir: ../organizations/peerOrganizations/org1.example.com/msp
+
+    # Policies define who can perform what actions
+    Policies:
+        Readers:
+            Type: Signature
+            Rule: "OR('Org1MSP.admin', 'Org1MSP.peer', 'Org1MSP.client')"
+        Writers:
+            Type: Signature
+            Rule: "OR('Org1MSP.admin', 'Org1MSP.client')"
+        Admins:
+            Type: Signature
+            Rule: "OR('Org1MSP.admin')"
+        Endorsement:
+            Type: Signature
+            Rule: "OR('Org1MSP.peer')"
+
+    # Anchor peers (for cross-org communication)
+    AnchorPeers:
+        - Host: peer0.org1.example.com
+          Port: 7051
+
+# Org2 - Peer Organization
+- &Org2
+    Name: Org2MSP
+    ID: Org2MSP
+    MSPDir: ../organizations/peerOrganizations/org2.example.com/msp
+
+    Policies:
+        Readers:
+            Type: Signature
+            Rule: "OR('Org2MSP.admin', 'Org2MSP.peer', 'Org2MSP.client')"
+        Writers:
+            Type: Signature
+            Rule: "OR('Org2MSP.admin', 'Org2MSP.client')"
+        Admins:
+            Type: Signature
+            Rule: "OR('Org2MSP.admin')"
+        Endorsement:
+            Type: Signature
+            Rule: "OR('Org2MSP.peer')"
+
+    AnchorPeers:
+        - Host: peer0.org2.example.com
+          Port: 7051
+
+# OrdererOrg - Orderer Organization
+- &OrdererOrg
+    Name: OrdererMSP
+    ID: OrdererMSP
+    MSPDir: ../organizations/ordererOrganizations/example.com/msp
+
+    Policies:
+        Readers:
+            Type: Signature
+            Rule: "OR('OrdererMSP.admin', 'OrdererMSP.orderer')"
+        Writers:
+            Type: Signature
+            Rule: "OR('OrdererMSP.admin', 'OrdererMSP.orderer')"
+        Admins:
+            Type: Signature
+            Rule: "OR('OrdererMSP.admin')"
+        BlockValidation:
+            Type: Signature
+            Rule: "OR('OrdererMSP.orderer')"
+
+######################################################################
+# Section 2: Consortiums
+######################################################################
+
+# Consortium definition - group of orgs that can create channels
+Consortiums:
+    SampleConsortium:
+        Organizations:
+            - *Org1
+            - *Org2
+
+######################################################################
+# Section 3: Channel Profiles
+######################################################################
+
+# Profile for System Channel (ordering channel)
+Profile:
+    &ChannelDefaults
+        # Consortium definition
+        Consortium: SampleConsortium
+
+        # Application section (for application channels)
+        Application:
+            Capabilities:
+                V2_0: true
+            Organizations:
+                - *Org1
+                - *Org2
+            Policies:
+                Readers:
+                    Type: ImplicitMeta
+                    Rule: "ANY Readers"
+                Writers:
+                    Type: ImplicitMeta
+                    Rule: "ANY Writers"
+                Admins:
+                    Type: ImplicitMeta
+                    Rule: "MAJORITY Admins"
+                LifecycleEndorsement:
+                    Type: ImplicitMeta
+                    Rule: "MAJORITY Endorsement"
+                Endorsement:
+                    Type: ImplicitMeta
+                    Rule: "MAJORITY Endorsement"
+
+        # Orderer section
+        Orderer:
+            Capabilities:
+                V2_0: true
+            Organizations:
+                - *OrdererOrg
+            Policies:
+                Readers:
+                    Type: ImplicitMeta
+                    Rule: "ANY Readers"
+                Writers:
+                    Type: ImplicitMeta
+                    Rule: "ANY Writers"
+                Admins:
+                    Type: ImplicitMeta
+                    Rule: "MAJORITY Admins"
+                BlockValidation:
+                    Type: Signature
+                    Rule: "OR('OrdererMSP.orderer')"
+
+# Profile for Application Channel
+Profile:
+    SampleAppChannel:
+        Consortium: SampleConsortium
+        Application:
+            Capabilities:
+                V2_0: true
+            Organizations:
+                - *Org1
+                - *Org2
+            Policies:
+                Readers:
+                    Type: ImplicitMeta
+                    Rule: "ANY Readers"
+                Writers:
+                    Type: ImplicitMeta
+                    Rule: "ANY Writers"
+                Admins:
+                    Type: ImplicitMeta
+                    Rule: "MAJORITY Admins"
+                LifecycleEndorsement:
+                    Type: ImplicitMeta
+                    Rule: "MAJORITY Endorsement"
+                Endorsement:
+                    Type: ImplicitMeta
+                    Rule: "MAJORITY Endorsement"
+
+######################################################################
+# Section 4: Orderer Settings
+######################################################################
+
+# Orderer Type (raft, etc.)
+OrdererType: etcdraft
+
+# Addresses of ordering nodes
+Addresses:
+    - orderer0.example.com:7050
+    - orderer1.example.com:7050
+    - orderer2.example.com:7050
+
+# Batch settings
+BatchSize:
+    MaxMessageCount: 10
+    AbsoluteMaxBytes: 99 MB
+    PreferredMaxBytes: 512 KB
+
+# Block hashing algorithm
+BlockHashingAlgorithm: SHA256
+
+# Orderer capabilities
+OrdererCapabilities:
+    V2_0: true
+
+# Application capabilities
+ApplicationCapabilities:
+    V2_0: true
+
+# Consensus options
+EtcdRaft:
+    Consenters:
+        - Host: orderer0.example.com
+          Port: 7050
+          ClientTLSCert: ../organizations/ordererOrganizations/example.com/orderers/orderer0.example.com/tls/server.crt
+          ServerTLSCert: ../organizations/ordererOrganizations/example.com/orderers/orderer0.example.com/tls/server.crt
+        - Host: orderer1.example.com
+          Port: 7050
+          ClientTLSCert: ../organizations/ordererOrganizations/example.com/orderers/orderer1.example.com/tls/server.crt
+          ServerTLSCert: ../organizations/ordererOrganizations/example.com/orderers/orderer1.example.com/tls/server.crt
+        - Host: orderer2.example.com
+          Port: 7050
+          ClientTLSCert: ../organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/server.crt
+          ServerTLSCert: ../organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/server.crt
+    Options:
+        TickInterval: 500ms
+        ElectionTick: 10
+        HeartbeatTick: 1
+        MaxInflightBlocks: 5
+        SnapshotIntervalSize: 16 MB
