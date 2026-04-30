@@ -40,7 +40,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Bicep CLI
-        uses: azure/bicep-setup@v1
+        run: |
+          az bicep install
 
       - name: Validate Bicep template
         run: |
