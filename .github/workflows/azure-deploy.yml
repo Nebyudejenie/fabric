@@ -1,0 +1,155 @@
+# filepath: .github/workflows/azure-deploy.yml
+name: Deploy to Azure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'azure-deploy/**'
+      - '.github/workflows/azure-deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'azure-deploy/**'
+      - '.github/workflows/azure-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
+
+env:
+  AZURE_RG: fabric-rg
+  AZURE_LOCATION: eastus
+  VM_NAME: fabric-vm
+  ADMIN_USERNAME: fabricadmin
+
+jobs:
+  validate:
+    name: Validate Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        uses: azure/bicep-setup@v1
+
+      - name: Validate Bicep template
+        run: |
+          az bicep build --file azure-deploy/main.bicep
+
+      - name: Validate Docker Compose
+        run: |
+          docker-compose -f azure-deploy/docker-compose.yaml config --quiet
+
+  deploy:
+    name: Deploy to Azure
+    needs: validate
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create Resource Group
+        run: |
+          az group create \
+            --name ${{ env.AZURE_RG }} \
+            --location ${{ env.AZURE_LOCATION }} \
+            --output table
+
+      - name: Generate SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          if [ ! -f ~/.ssh/azure_fabric_id_rsa ]; then
+            ssh-keygen -t rsa -b 4096 -f ~/.ssh/azure_fabric_id_rsa -N "" -C "fabric-azure"
+          fi
+          echo "SSH_KEY=$(cat ~/.ssh/azure_fabric_id_rsa.pub)" >> $GITHUB_ENV
+
+      - name: Deploy Bicep template
+        run: |
+          az deployment group create \
+            --resource-group ${{ env.AZURE_RG }} \
+            --template-file azure-deploy/main.bicep \
+            --parameters \
+              location=${{ env.AZURE_LOCATION }} \
+              vmName=${{ env.VM_NAME }} \
+              adminUsername=${{ env.ADMIN_USERNAME }} \
+              sshPublicKey="${{ env.SSH_KEY }}" \
+              vmSize=Standard_B1s \
+            --output table
+
+      - name: Get Public IP
+        id: get_ip
+        run: |
+          PUBLIC_IP=$(az vm show -g ${{ env.AZURE_RG }} -n ${{ env.VM_NAME }} --query 'publicIps' -o tsv)
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+          echo "VM Public IP: $PUBLIC_IP"
+
+      - name: Upload SSH Key
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssh-key
+          path: ~/.ssh/azure_fabric_id_rsa
+          retention-days: 1
+
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "## Deployment Complete" > comment.md
+          echo "### VM Details" >> comment.md
+          echo "- **Public IP**: ${{ steps.get_ip.outputs.public_ip }}" >> comment.md
+          echo "- **SSH**: ssh ${{ env.ADMIN_USERNAME }}@${{ steps.get_ip.outputs.public_ip }}" >> comment.md
+          echo "" >> comment.md
+          echo "### Next Steps" >> comment.md
+          echo "1. SSH into the VM" >> comment.md
+          echo "2. Install Docker: \`curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh\`" >> comment.md
+          echo "3. Start Fabric: \`sudo docker-compose -f azure-deploy/docker-compose.yaml up -d\`" >> comment.md
+          cat comment.md
+
+  destroy:
+    name: Destroy Azure Resources
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Delete Resource Group
+        run: |
+          az group delete \
+            --name ${{ env.AZURE_RG }} \
+            --yes \
+            --no-wait
+
+      - name: Confirm Deletion
+        run: |
+          echo "Resource group '${{ env.AZURE_RG }}' deletion initiated."
+          echo "This may take a few minutes to complete."
